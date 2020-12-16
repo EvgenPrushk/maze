@@ -1,28 +1,57 @@
-const CELL_SIZE = 50;
+const CELL_SIZE = 3;
 const PADDING = 5;
 const WALL_COLOR = "black";
 const FREE_COLOR = "white";
 const BACKGROUND_COLOR = "gray";
 const TRACTOR_COLOR = "red";
+const WITH_ANIMATION = false;
+
+const TRACTORS_NUMBER = 100;
+const DELAY_TIMEOUT = 0;
 
 // колличество ячеек должно быть нечетным
-const COLUMNS = 11;
-const ROWS = 11;
+const COLUMNS = 101;
+const ROWS = 101;
 
 const canvas = document.querySelector("canvas");
 const context = canvas.getContext("2d");
+
 const matrix = createMatrix(COLUMNS, ROWS);
+const tractors = [];
+for (let i = 0; i < TRACTORS_NUMBER; i++) {
+  tractors.push({
+    x: 0,
+    y: 0,
+  });
+}
 
-const tractor = {
-  x: 0,
-  y: 0,
-};
+matrix[0][0] = true;
 
-matrix[tractor.y][tractor.x] = true;
+main();
 
+async function main() {
+  while (!isValidMaze()) {
+    for (const tractor of tractors) {
+      moveTractor(tractor);
+    }
+    // если с анимацией, то ставим в true
+    if (WITH_ANIMATION) {
+      drawMaze();
 
-moveTractor();
-drawmaze();
+      for (const tractor of tractors) {
+        drawTractor(tractor);
+      }
+
+      await delay(DELAY_TIMEOUT);
+    }
+  }
+  drawMaze();
+}
+
+// стандартная функция задержки
+function delay(timeout) {
+  return new Promise((resolve) => setTimeout(resolve, timeout));
+}
 
 // генерация матрицы для создания лабиринта
 function createMatrix(columns, rows) {
@@ -41,7 +70,7 @@ function createMatrix(columns, rows) {
   return matrix;
 }
 
-function drawmaze() {
+function drawMaze() {
   canvas.width = PADDING * 2 + COLUMNS * CELL_SIZE;
   canvas.height = PADDING * 2 + ROWS * CELL_SIZE;
 
@@ -65,7 +94,9 @@ function drawmaze() {
       context.fill();
     }
   }
+}
 
+function drawTractor(tractor) {
   context.beginPath();
   context.rect(
     PADDING + tractor.x * CELL_SIZE,
@@ -77,31 +108,50 @@ function drawmaze() {
   context.fill();
 }
 
-function moveTractor () {
-    const directions = [];
+function moveTractor(tractor) {
+  const directions = [];
 
-    if (tractor.x > 0) {
-        directions.push([-2, 0])
-    }
+  if (tractor.x > 0) {
+    directions.push([-2, 0]);
+  }
 
-    if (tractor.x < COLUMNS) {
-        directions.push([2,0]);
-    }
+  if (tractor.x < COLUMNS - 1) {
+    directions.push([2, 0]);
+  }
 
-    if (tractor.y > 0) {
-        directions.push([0, -2]);
-    }
+  if (tractor.y > 0) {
+    directions.push([0, -2]);
+  }
 
-    if (tractor.y < ROWS) {
-        directions.push([0, 2]);
-    }
-    // деструктуризация движения трактора
-    const [dx, dy] = getRandomItem(directions);
-    tractor.x += dx;
-    tractor.y += dy;
+  if (tractor.y < ROWS - 1) {
+    directions.push([0, 2]);
+  }
+
+  // деструктуризация движения трактора
+  const [dx, dy] = getRandomItem(directions);
+
+  tractor.x += dx;
+  tractor.y += dy;
+
+  if (!matrix[tractor.y][tractor.x]) {
+    matrix[tractor.y][tractor.x] = true;
+    matrix[tractor.y - dy / 2][tractor.x - dx / 2] = true;
+  }
 }
 
-function getRandomItem (array) {
-    const index = Math.floor(Math.random() * array.length);
-    return array[index];
+function getRandomItem(array) {
+  const index = Math.floor(Math.random() * array.length);
+  return array[index];
+}
+
+function isValidMaze() {
+  for (let y = 0; y < COLUMNS; y += 2) {
+    for (let x = 0; x < ROWS; x += 2) {
+      if (!matrix[y][x]) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
