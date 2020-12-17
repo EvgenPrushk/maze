@@ -10,8 +10,8 @@ const TRACTORS_NUMBER = 1;
 const DELAY_TIMEOUT = 100;
 
 // колличество ячеек должно быть нечетным
-const COLUMNS = 11;
-const ROWS = 11;
+const COLUMNS = 21;
+const ROWS = 21;
 
 const canvas = document.querySelector("canvas");
 const context = canvas.getContext("2d");
@@ -22,6 +22,9 @@ const mouse = createMouse(canvas);
 // две переменные заполняемые при клике
 let cell1 = null;
 let cell2 = null;
+let potentials = null;
+let path = null;
+
 const matrix = createMatrix(COLUMNS, ROWS);
 const tractors = [];
 for (let i = 0; i < TRACTORS_NUMBER; i++) {
@@ -178,7 +181,9 @@ function createMouse(element) {
     pLeft: false,
     over: false,
     // сравниваем состояние текущее и предыдущего тика
-    update () { this.pLeft = this.left;},
+    update() {
+      this.pLeft = this.left;
+    },
   };
 
   element.addEventListener("mouseenter", mouseenterHandler);
@@ -202,19 +207,18 @@ function createMouse(element) {
   }
 
   function mousedownHandler(event) {
-     mouse.left = true;
+    mouse.left = true;
   }
 
   function mouseupHandler(event) {
     mouse.left = false;
-}
+  }
 
   return mouse;
 }
 
 function tick() {
   requestAnimationFrame(tick);
-  
 
   if (
     mouse.x < PADDING ||
@@ -222,23 +226,163 @@ function tick() {
     mouse.x > canvas.width - PADDING ||
     mouse.y > canvas.height - PADDING
   ) {
-      return;
+    return;
   }
-  
+
   const x = Math.floor((mouse.x - PADDING) / CELL_SIZE);
   const y = Math.floor((mouse.y - PADDING) / CELL_SIZE);
 
   if (mouse.left && !mouse.pLeft && matrix[y][x]) {
     // проверка если мы кликнули на одну и ту же ячейку
-    if(!cell1 || cell1[0] !== x || cell1[1] !== y){
+    if (!cell1 || cell1[0] !== x || cell1[1] !== y) {
       cell2 = cell1;
-      // забираем положение прокликивоемой ячейки 
+      // забираем положение прокликивоемой ячейки
       cell1 = [x, y];
- 
-     console.log(cell1, cell2);
+
+     
     }
-  
+    if (cell1 && cell2) {
+      potentials = getPotentialMatrix(matrix, cell1, cell2);
+
+      let [x, y] = cell1;
+      let potential = potentials[y][x];
+      path = [[x, y]];      
+      
+
+      while (potential !== 0) {
+        // отнимаем от текущего потенциала 1
+        potential--;
+
+        // ячейка сверху, равна ли она текущему потенциалу минус 1
+        if (y > 0 && potentials[y - 1][x] === potential) {
+          path.push([x, y - 1]);
+          y--;
+          continue;
+        }
+
+        // ячейка снизу, равна ли она текущему потенциалу минус 1
+        if (y < COLUMNS - 1 && potentials[y + 1][x] === potential) {
+          path.push([x, y + 1]);
+          y++;
+          continue;
+        }
+
+        // ячейка слева, равна ли она текущему потенциалу минус 1
+        if (x > 0 && potentials[y][x - 1] === potential) {
+          path.push([x - 1, y]);
+          x--;
+          continue;
+        }
+
+        // ячейка справа, равна ли она текущему потенциалу минус 1
+        if (x < ROWS - 1 && potentials[y][x + 1] === potential) {
+          path.push([x + 1, y]);
+          x++;
+          continue;
+        }
+      }
+      console.log(path);
+    }
   }
- 
+
+  if (path) {
+    for (const [x, y] of path) {
+      context.fillStyle = "green";
+      context.fillRect(
+        PADDING + x * CELL_SIZE,
+        PADDING + y * CELL_SIZE,
+        CELL_SIZE,
+        CELL_SIZE
+      )
+    }
+  }
+  // фрагмент кода для рисования цифр определяющий растояние между двумя точками лабиринта
+  // if (potentials) {
+  //   for (let y = 0; y < COLUMNS; y++) {
+  //     for (let x = 0; x < ROWS; x++) {
+  //       if (potentials[y][x] === null || potentials[y][x] === false) {
+  //         continue;
+  //       }
+
+  //       context.fillStyle = "red";
+  //       context.font = "30px serif";
+  //       context.textAlign = "center";
+  //       context.textBaseline = "middle";
+  //       context.fillText(
+  //         potentials[y][x],
+  //         PADDING + x * CELL_SIZE + CELL_SIZE * 0.5,
+  //         PADDING + y * CELL_SIZE + CELL_SIZE * 0.5
+  //       );
+  //     }
+  //   }
+
+  // }
+
   mouse.update();
+}
+// использую волновую функцию для нохождения выхода из лабиринта
+function getPotentialMatrix(matrix, [x1, y1], [x2, y2]) {
+  const potentials = [];
+  for (let y = 0; y < matrix.length; y++) {
+    const row = [];
+    for (let x = 0; x < matrix[y].length; x++) {
+      row.push(null);
+    }
+    potentials.push(row);
+  }
+  // та часть лабиринта, которая темная, отмечаем ее false
+  for (let y = 0; y < matrix.length; y++) {
+    for (let x = 0; x < matrix[y].length; x++) {
+      if (matrix[y][x] === false) {
+        potentials[y][x] = false;
+      }
+    }
+  }
+  // при работе с матрицами мы сначала обращаемся к у координате, а потом к х
+  potentials[y2][x2] = 0;
+
+  while (potentials[y1][x1] === null) {
+    for (let y = 0; y < matrix.length; y++) {
+      for (let x = 0; x < matrix[y].length; x++) {
+        if (potentials[y][x] === false || potentials[y][x] === null) {
+          continue;
+        }
+
+        const number = potentials[y][x] + 1;
+        // верхняя ячейка
+        if (y > 0 && potentials[y - 1][x] !== false) {
+          if (potentials[y - 1][x] === null) {
+            potentials[y - 1][x] = number;
+          } else {
+            potentials[y - 1][x] = Math.min(potentials[y - 1][x], number);
+          }
+        }
+        // нижняя ячейка
+        if (y < matrix.length - 1 && potentials[y + 1][x] !== false) {
+          if (potentials[y + 1][x] === null) {
+            potentials[y + 1][x] = number;
+          } else {
+            potentials[y + 1][x] = Math.min(potentials[y + 1][x], number);
+          }
+        }
+        // левая ячейка
+        if (x > 0 && potentials[y][x - 1] !== false) {
+          if (potentials[y][x - 1] === null) {
+            potentials[y][x - 1] = number;
+          } else {
+            potentials[y][x - 1] = Math.min(potentials[y][x - 1], number);
+          }
+        }
+        // правая ячейка
+        if (x < matrix[0].length && potentials[y][x + 1] !== false) {
+          if (potentials[y][x + 1] === null) {
+            potentials[y][x + 1] = number;
+          } else {
+            potentials[y][x + 1] = Math.min(potentials[y][x + 1], number);
+          }
+        }
+      }
+    }
+  }
+  return potentials;
 }
