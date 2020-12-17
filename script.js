@@ -1,4 +1,4 @@
-const CELL_SIZE = 3;
+const CELL_SIZE = 50;
 const PADDING = 5;
 const WALL_COLOR = "black";
 const FREE_COLOR = "white";
@@ -6,16 +6,22 @@ const BACKGROUND_COLOR = "gray";
 const TRACTOR_COLOR = "red";
 const WITH_ANIMATION = false;
 
-const TRACTORS_NUMBER = 100;
-const DELAY_TIMEOUT = 0;
+const TRACTORS_NUMBER = 1;
+const DELAY_TIMEOUT = 100;
 
 // колличество ячеек должно быть нечетным
-const COLUMNS = 101;
-const ROWS = 101;
+const COLUMNS = 11;
+const ROWS = 11;
 
 const canvas = document.querySelector("canvas");
 const context = canvas.getContext("2d");
 
+// хотим получить состояние муши в зависимости от того, где она находиться на canvas
+const mouse = createMouse(canvas);
+
+// две переменные заполняемые при клике
+let cell1 = null;
+let cell2 = null;
 const matrix = createMatrix(COLUMNS, ROWS);
 const tractors = [];
 for (let i = 0; i < TRACTORS_NUMBER; i++) {
@@ -24,11 +30,12 @@ for (let i = 0; i < TRACTORS_NUMBER; i++) {
     y: 0,
   });
 }
-
+// стартовая ячейка для всех тракторов
 matrix[0][0] = true;
 
 main();
 
+//  главная функция для отрисовки лабиринта
 async function main() {
   while (!isValidMaze()) {
     for (const tractor of tractors) {
@@ -46,6 +53,8 @@ async function main() {
     }
   }
   drawMaze();
+
+  requestAnimationFrame(tick);
 }
 
 // стандартная функция задержки
@@ -70,6 +79,7 @@ function createMatrix(columns, rows) {
   return matrix;
 }
 
+// отрисовка лабиринта в том состоянии в котором он сейчас есть
 function drawMaze() {
   canvas.width = PADDING * 2 + COLUMNS * CELL_SIZE;
   canvas.height = PADDING * 2 + ROWS * CELL_SIZE;
@@ -96,6 +106,7 @@ function drawMaze() {
   }
 }
 
+// функция отрисовки трактора в текущем состоянии
 function drawTractor(tractor) {
   context.beginPath();
   context.rect(
@@ -108,6 +119,7 @@ function drawTractor(tractor) {
   context.fill();
 }
 
+// рисует трактор после перемещения
 function moveTractor(tractor) {
   const directions = [];
 
@@ -139,11 +151,13 @@ function moveTractor(tractor) {
   }
 }
 
+// случайное генерация движения трактора вверх, вниз, вправо в лево при возможности
 function getRandomItem(array) {
   const index = Math.floor(Math.random() * array.length);
   return array[index];
 }
 
+//  проверка завершенности рисования лабиринта
 function isValidMaze() {
   for (let y = 0; y < COLUMNS; y += 2) {
     for (let x = 0; x < ROWS; x += 2) {
@@ -154,4 +168,77 @@ function isValidMaze() {
   }
 
   return true;
+}
+
+function createMouse(element) {
+  const mouse = {
+    x: 0,
+    y: 0,
+    left: false,
+    pLeft: false,
+    over: false,
+    // сравниваем состояние текущее и предыдущего тика
+    update () { this.pLeft = this.left;},
+  };
+
+  element.addEventListener("mouseenter", mouseenterHandler);
+  element.addEventListener("mouseleave", mouseleaveHandler);
+  element.addEventListener("mousemove", mousemoveHandler);
+  element.addEventListener("mousedown", mousedownHandler);
+  element.addEventListener("mouseup", mouseupHandler);
+
+  function mouseenterHandler() {
+    mouse.over = true;
+  }
+
+  function mouseleaveHandler() {
+    mouse.over = false;
+  }
+
+  function mousemoveHandler(event) {
+    const rect = element.getBoundingClientRect();
+    mouse.x = event.clientX - rect.left;
+    mouse.y = event.clientY - rect.top;
+  }
+
+  function mousedownHandler(event) {
+     mouse.left = true;
+  }
+
+  function mouseupHandler(event) {
+    mouse.left = false;
+}
+
+  return mouse;
+}
+
+function tick() {
+  requestAnimationFrame(tick);
+  
+
+  if (
+    mouse.x < PADDING ||
+    mouse.y < PADDING ||
+    mouse.x > canvas.width - PADDING ||
+    mouse.y > canvas.height - PADDING
+  ) {
+      return;
+  }
+  
+  const x = Math.floor((mouse.x - PADDING) / CELL_SIZE);
+  const y = Math.floor((mouse.y - PADDING) / CELL_SIZE);
+
+  if (mouse.left && !mouse.pLeft && matrix[y][x]) {
+    // проверка если мы кликнули на одну и ту же ячейку
+    if(!cell1 || cell1[0] !== x || cell1[1] !== y){
+      cell2 = cell1;
+      // забираем положение прокликивоемой ячейки 
+      cell1 = [x, y];
+ 
+     console.log(cell1, cell2);
+    }
+  
+  }
+ 
+  mouse.update();
 }
